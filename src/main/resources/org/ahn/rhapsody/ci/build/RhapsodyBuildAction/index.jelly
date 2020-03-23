@@ -1,0 +1,106 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:i="jelly:fmt" xmlns:p="/lib/hudson/project">
+    <l:layout xmlns:plugin="/hudson/plugins/javancss/tags" css="/plugin/javancss/css/style.css" title="Rhapsody Test Result">
+        <st:include it="${it.run}" page="sidepanel.jelly"/>
+        <l:main-panel>
+            <h1>Rhapsody Test Result</h1>
+            <dl>
+                <dt>Successs</dt>
+                <dd>${it.successCount}</dd>
+                <dt>Failed</dt>
+                <dd>${it.failCount}</dd>
+                <dt>Total</dt>
+                <dd>${it.totalCount}</dd>
+            </dl>
+            <h2>Tests</h2>
+            <j:if test="${it.testSuite != null}">
+                <table class="pane sortable stripped">
+                    <tr>
+                        <td class="pane-header">Route</td>
+                        <td class="pane-header">Filter/Connector</td>
+                        <td class="pane-header">Test name</td>
+                        <td class="pane-header">Status</td>
+                    </tr>
+
+                    <j:forEach var="comp" items="${it.testSuite.components}">
+                        <j:if test="${comp.tests.isEmpty()}">
+                            <tr>
+                                <td>${comp.componentName}<br />
+                                    <span style="font-size:smaller; color:grey;">${comp.folderPath}</span>
+                                </td>
+                                <td><st:nbsp/></td>
+                                <td><st:nbsp/></td>
+                                <td>
+                                    <span style="font-size:smaller; color:grey;">No tests</span>
+                                </td>
+                            </tr>
+                        </j:if>
+                        <j:if test="${comp.tests.size() > 0}">
+                            <j:forEach var="case" items="${comp.tests}">
+                                <tr>
+                                    <td>${comp.componentName}<br />
+                                        <span style="font-size:smaller; color:grey;">${comp.folderPath}</span>
+                                    </td>
+                                    <td>
+                                        <j:if test="${case.filterName != ''}">
+                                            ${case.filterName}
+                                        </j:if>
+                                        <j:if test="${case.connectorName != ''}">
+                                            ${case.connectorName}
+                                        </j:if>
+                                    </td>
+                                    <td>${case.name}</td>
+                                    <td>
+                                        <j:choose>
+                                            <j:when test="${case.result == 'FAIL' || case.result == 'ERROR'}">
+                                                <span class="result-failed">${case.result}</span>
+                                            </j:when>
+                                            <j:when test="${case.result == 'PASS'}">
+                                                <span class="result-passed">${case.result}</span>
+                                            </j:when>
+                                            <j:otherwise>
+                                                ${case.result}
+                                            </j:otherwise>
+                                        </j:choose>
+                                    </td>
+                                </tr>    
+                            </j:forEach>
+                        </j:if>
+
+                        
+                        <!--<j:forEach var="case" items="${comp.tests}">
+                            <tr>
+                                <td>${comp.componentName}<br />
+                                    <span style="font-size:smaller; color:grey;">${comp.folderPath}</span>
+                                </td>
+                                <td>
+                                    <j:if test="${case.filterName != ''}">
+                                        ${case.filterName}
+                                    </j:if>
+                                    <j:if test="${case.connectorName != ''}">
+                                        ${case.connectorName}
+                                    </j:if>
+                                </td>
+                                <td>${case.name}</td>
+                                <td>
+                                    <j:choose>
+                                        <j:when test="${case.result == 'FAIL' || case.result == 'ERROR'}">
+                                            <span class="result-failed">${case.result}</span>
+                                        </j:when>
+                                        <j:when test="${case.result == 'PASS'}">
+                                            <span class="result-passed">${case.result}</span>
+                                        </j:when>
+                                        <j:otherwise>
+                                            ${case.result}
+                                        </j:otherwise>
+                                    </j:choose>
+                                </td>
+                            </tr>    
+                        </j:forEach>-->
+                    </j:forEach>
+
+                </table>
+            </j:if>
+        </l:main-panel>
+    </l:layout>
+</j:jelly>

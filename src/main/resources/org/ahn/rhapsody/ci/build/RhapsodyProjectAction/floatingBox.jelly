@@ -1,0 +1,8 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" 
+         xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:p="/lib/hudson/project">
+    <div class="test-trend-caption">
+        Rhapsody Test Result Trend
+    </div>
+    <img src="rh-graph/trend" lazymap="rh-graph/map" alt="Test result trend chart"/>
+</j:jelly>
