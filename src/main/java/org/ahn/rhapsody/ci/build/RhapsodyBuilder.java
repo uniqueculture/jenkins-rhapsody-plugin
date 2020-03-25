@@ -40,7 +40,6 @@ import hudson.util.FormValidation;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -49,8 +48,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.ahn.rhapsody.ci.GlobUtils;
 import org.ahn.rhapsody.ci.RhapsodyComponentTestTask;
@@ -63,9 +64,7 @@ import org.ahn.rhapsody.ci.model.Filter;
 import org.ahn.rhapsody.ci.model.Route;
 import org.ahn.rhapsody.ci.scm.RhapsodySCM;
 import org.ahn.rhapsody.ci.scm.RhapsodySCMAction;
-import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.slf4j.Logger;
@@ -80,26 +79,26 @@ public class RhapsodyBuilder extends Builder {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RhapsodyBuilder.class);
 
-    private String routePattern;
-    private String filterPattern;
+    private String routePatterns;
+    private String filterPatterns;
     private boolean allowEmptyResults = false;
 
     private transient HttpClient httpClient;
     private transient ObjectMapper objectMapper;
 
     @DataBoundConstructor
-    public RhapsodyBuilder(String restUrl, String serviceUsername, String servicePassword, String routePattern, String filterPattern, boolean allowEmptyResults) {
-        this.routePattern = routePattern;
-        this.filterPattern = filterPattern;
+    public RhapsodyBuilder(String routePatterns, String filterPatterns, boolean allowEmptyResults) {
+        this.routePatterns = routePatterns;
+        this.filterPatterns = filterPatterns;
         this.allowEmptyResults = allowEmptyResults;
     }
 
-    public String getRoutePattern() {
-        return routePattern;
+    public String getRoutePatterns() {
+        return routePatterns;
     }
 
-    public String getFilterPattern() {
-        return filterPattern;
+    public String getFilterPatterns() {
+        return filterPatterns;
     }
 
     public boolean isAllowEmptyResults() {
@@ -134,28 +133,54 @@ public class RhapsodyBuilder extends Builder {
      * Filter the components needed for testing, based on configured patterns
      *
      * @param allRoutes
+     * @param routeFilterPattens 
+     * @param filterFilterPatterns 
      * @return
      */
-    protected List<Component> filterComponentsToTest(List<Route> allRoutes) {
+    protected List<Component> filterComponentsToTest(List<Route> allRoutes, String routeFilterPattens, String filterFilterPatterns) {
+        if (routeFilterPattens == null || routeFilterPattens.isEmpty()) {
+            throw new IllegalArgumentException("Route filter patterns must not be blank");
+        }
+        
         List<Component> componentsToTest = new ArrayList<>();
-        Pattern routeRegex = Pattern.compile(GlobUtils.toRegex(routePattern), Pattern.CASE_INSENSITIVE);
-        Pattern filterRegex = filterPattern == null || filterPattern.isEmpty()
-                ? Pattern.compile("^.+$", Pattern.CASE_INSENSITIVE)
-                : Pattern.compile(GlobUtils.toRegex(filterPattern), Pattern.CASE_INSENSITIVE);
+        String[] routeFilterPattern = routeFilterPattens.split("\n");
+        
+        List<Pattern> routeRegex = new ArrayList<>();
+        List<Pattern> filterRegex = new ArrayList<>();
+        for (String pattern : routeFilterPattern) {
+            routeRegex.add(Pattern.compile(GlobUtils.toRegex(pattern), Pattern.CASE_INSENSITIVE));
+        }
+        
+        if (filterFilterPatterns != null && !filterFilterPatterns.isEmpty()) {
+            String[] filterFilterPattern = filterFilterPatterns.split("\n");
+            for (String pattern : filterFilterPattern) {
+                filterRegex.add(Pattern.compile(GlobUtils.toRegex(pattern), Pattern.CASE_INSENSITIVE));
+            }
+        }
+
         // Filter on the name of either route & filter or just route
         // Just route testing allows for connector testing
         allRoutes.forEach(r -> {
-            if (filterPattern != null && !filterPattern.isEmpty()) {
-                // Will be testing filters
-                for (Filter filter : r.getFilters()) {
-                    if (routeRegex.matcher(r.getName()).matches() && filterRegex.matcher(filter.getName()).matches()) {
-                        // Route name and its filter name matches, will test
-                        componentsToTest.add(filter);
+            // Match on the route name
+            Optional<Matcher> routeMatcher = routeRegex.stream()
+                    .map(regex -> regex.matcher(r.getName()))
+                    .filter(m -> m.matches())
+                    .findAny();
+            if (routeMatcher.isPresent()) {
+                // Route name is matching, check if are only testing filters on the route
+                if (!filterRegex.isEmpty()) {
+                    // Check if route's filter name matches, will test
+                    for (Filter f : r.getFilters()) {
+                        Optional<Matcher> matcher = filterRegex.stream()
+                                .map(p -> p.matcher(f.getName()))
+                                .filter(m -> m.matches())
+                                .findAny();
+                        if (matcher.isPresent()) {
+                            componentsToTest.add(f);
+                        }
                     }
-                }
-            } else {
-                // Will be testing routes as the whole
-                if (routeRegex.matcher(r.getName()).matches()) {
+                } else {
+                    // Add the whole route to be tester
                     componentsToTest.add(r);
                 }
             }
@@ -269,13 +294,13 @@ public class RhapsodyBuilder extends Builder {
         LOGGER.info("Performing build on Rhapsody instance at {}", restUrl);
 
         // Run through validation
-        if (routePattern == null) {
-            stdout.println("Route pattern cannot be empty");
+        if (routePatterns == null) {
+            stdout.println("Route patterns cannot be empty");
             return false;
         }
 
-        if (filterPattern == null) {
-            filterPattern = "";
+        if (filterPatterns == null) {
+            filterPatterns = "";
         }
 
         // Get credentials
@@ -291,8 +316,10 @@ public class RhapsodyBuilder extends Builder {
         stdout.println("Performing build on Rhapsody instance at " + restUrl);
         stdout.println("REST URL: " + restUrl);
         stdout.println("Service username: " + serviceUsername);
-        stdout.println("Route pattern: " + routePattern);
-        stdout.println("Filter pattern: " + filterPattern);
+        stdout.println("Route pattern: ");
+        stdout.println(routePatterns);
+        stdout.println("Filter pattern: ");
+        stdout.println(filterPatterns);
         stdout.println("Allow empty results: " + Boolean.toString(allowEmptyResults));
         stdout.println();
 
@@ -309,7 +336,7 @@ public class RhapsodyBuilder extends Builder {
         List<Component> componentsToTest = new ArrayList<>();
         try {
             allRoutes = getAllRoutes(build);
-            componentsToTest = filterComponentsToTest(allRoutes);
+            componentsToTest = filterComponentsToTest(allRoutes, routePatterns, filterPatterns);
         } catch (Exception ex) {
 
         }
@@ -450,9 +477,9 @@ public class RhapsodyBuilder extends Builder {
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
-        public FormValidation doCheckRoutePattern(@QueryParameter String routePattern) {
-            if (routePattern == null || routePattern.trim().isEmpty()) {
-                return FormValidation.error("Route pattern is required");
+        public FormValidation doCheckRoutePatterns(@QueryParameter String routePatterns) {
+            if (routePatterns == null || routePatterns.trim().isEmpty()) {
+                return FormValidation.error("Route patterns is required");
             }
 
             return FormValidation.ok();
