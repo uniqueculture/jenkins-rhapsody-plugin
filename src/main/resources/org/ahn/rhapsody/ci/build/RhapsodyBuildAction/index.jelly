@@ -1,17 +1,32 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:i="jelly:fmt" xmlns:p="/lib/hudson/project">
-    <l:layout xmlns:plugin="/hudson/plugins/javancss/tags" css="/plugin/javancss/css/style.css" title="Rhapsody Test Result">
+    <l:layout title="Rhapsody Test Result">
+        <l:header>
+            <link rel="stylesheet" type="text/css" href="${rootURL}/plugin/jenkins-rhapsody-plugin/styles/style.css" />
+        </l:header>
+        
         <st:include it="${it.run}" page="sidepanel.jelly"/>
         <l:main-panel>
             <h1>Rhapsody Test Result</h1>
-            <dl>
-                <dt>Successs</dt>
-                <dd>${it.successCount}</dd>
-                <dt>Failed</dt>
-                <dd>${it.failCount}</dd>
-                <dt>Total</dt>
-                <dd>${it.totalCount}</dd>
-            </dl>
+            <div class="flex-container">
+                <div class="flex-item">
+                    <dl>
+                        <dt>Successs</dt>
+                        <dd>${it.successCount}</dd>
+                        <dt>Failed</dt>
+                        <dd>${it.failCount}</dd>
+                    </dl>
+                </div>
+                <div class="flex-item">
+                    <dl>
+                        <dt>Skipped</dt>
+                        <dd>${it.skippedCount}</dd>
+                        <dt>Total</dt>
+                        <dd>${it.totalCount}</dd>
+                    </dl>
+                </div>
+            </div>
+
             <h2>Tests</h2>
             <j:if test="${it.testSuite != null}">
                 <table class="pane sortable stripped">
@@ -28,8 +43,12 @@
                                 <td>${comp.componentName}<br />
                                     <span style="font-size:smaller; color:grey;">${comp.folderPath}</span>
                                 </td>
-                                <td><st:nbsp/></td>
-                                <td><st:nbsp/></td>
+                                <td>
+                                    <st:nbsp/>
+                                </td>
+                                <td>
+                                    <st:nbsp/>
+                                </td>
                                 <td>
                                     <span style="font-size:smaller; color:grey;">No tests</span>
                                 </td>

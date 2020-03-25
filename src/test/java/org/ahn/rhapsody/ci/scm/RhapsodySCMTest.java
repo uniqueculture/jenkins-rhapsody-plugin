@@ -23,15 +23,15 @@
  */
 package org.ahn.rhapsody.ci.scm;
 
-import com.cloudbees.plugins.credentials.CredentialsScope;
-import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
-import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl;
 import hudson.FilePath;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import hudson.scm.ChangeLogSet;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import org.ahn.rhapsody.ci.RhapsodyRestHelper;
+import org.apache.commons.compress.changes.ChangeSet;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
@@ -56,17 +56,7 @@ public class RhapsodySCMTest {
 
     @Test
     public void testCheckout() throws IOException, InterruptedException, ExecutionException {
-        HttpClient client = Mockito.mock(HttpClient.class);
-        HttpResponse response = Mockito.mock(HttpResponse.class);
-        HttpEntity entity = Mockito.mock(HttpEntity.class);
-        StatusLine statusLine = Mockito.mock(StatusLine.class);
-        when(client.execute(isA(HttpUriRequest.class))).thenReturn(response);
-        when(response.getEntity()).thenReturn(entity);
-        when(response.getStatusLine()).thenReturn(statusLine);
-        when(entity.getContent()).thenReturn(new ByteArrayInputStream("Testing".getBytes()));
-        when(statusLine.getStatusCode()).thenReturn(200);
-        when(statusLine.getReasonPhrase()).thenReturn("");
-
+        HttpClient client = mockHttpClient("Testing".getBytes());
         FreeStyleProject project = jenkins.createFreeStyleProject();
         RhapsodySCM scm = new RhapsodySCM("", "");
         scm.setHttpClient(client);
@@ -80,6 +70,50 @@ public class RhapsodySCMTest {
         // Check for the checkout action
         RhapsodySCMAction a = build.getAction(RhapsodySCMAction.class);
         assertNotNull(a);
+    }
+
+    @Test
+    public void testRevisionStateTimestamp() throws IOException, InterruptedException, ExecutionException {
+        long sleep = 5000;
+        HttpClient client = mockHttpClient("Testing".getBytes());
+        FreeStyleProject project = jenkins.createFreeStyleProject();
+        RhapsodySCM scm = new RhapsodySCM("", "");
+        scm.setHttpClient(client);
+
+        FreeStyleBuild build, lastBuild = null;
+        RhapsodyAuditLogRevisionState revState, lastRevState = null;
+        for (int i = 0; i < 5; i++) {
+            // Build once more
+            build = project.scheduleBuild2(0).get();
+            revState = build.getAction(RhapsodyAuditLogRevisionState.class);
+            // Wait
+            Thread.sleep(sleep);
+
+            if (lastBuild == null || lastRevState == null) {
+                continue;
+            }
+
+            long diff = revState.getTimestamp() - lastRevState.getTimestamp();
+            assertTrue(diff > sleep);
+            
+            lastBuild = build;
+            lastRevState = revState;
+        }
+    }
+
+    protected HttpClient mockHttpClient(byte[] responseBytes) throws IOException {
+        HttpClient client = Mockito.mock(HttpClient.class);
+        HttpResponse response = Mockito.mock(HttpResponse.class);
+        HttpEntity entity = Mockito.mock(HttpEntity.class);
+        StatusLine statusLine = Mockito.mock(StatusLine.class);
+        when(client.execute(isA(HttpUriRequest.class))).thenReturn(response);
+        when(response.getEntity()).thenReturn(entity);
+        when(response.getStatusLine()).thenReturn(statusLine);
+        when(entity.getContent()).thenReturn(new ByteArrayInputStream(responseBytes));
+        when(statusLine.getStatusCode()).thenReturn(200);
+        when(statusLine.getReasonPhrase()).thenReturn("");
+
+        return client;
     }
 
 }

@@ -46,11 +46,13 @@ public class RhapsodyBuildAction implements RunAction2 {
     private int successCount;
     private int failCount;
     private int totalCount;
+    private int skippedCount;
 
-    public RhapsodyBuildAction(int successCount, int failCount, int totalCount) {
+    public RhapsodyBuildAction(int successCount, int failCount, int skippedCount, int totalCount) {
         this.successCount = successCount;
         this.failCount = failCount;
         this.totalCount = totalCount;
+        this.skippedCount = skippedCount;
     }
 
     public int getSuccessCount() {
@@ -65,6 +67,10 @@ public class RhapsodyBuildAction implements RunAction2 {
         return totalCount;
     }
 
+    public int getSkippedCount() {
+        return skippedCount;
+    }
+    
     public Run getRun() {
         return run;
     }

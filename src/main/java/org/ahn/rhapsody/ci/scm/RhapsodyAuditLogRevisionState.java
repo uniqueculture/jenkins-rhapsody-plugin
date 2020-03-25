@@ -21,36 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.ahn.rhapsody.ci.model;
+package org.ahn.rhapsody.ci.scm;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import hudson.scm.SCMRevisionState;
 
 /**
  *
  * @author me
  */
-public class Route extends Component {
+public class RhapsodyAuditLogRevisionState extends SCMRevisionState {
     
-    List<Filter> filters;
+    private long timestamp;
 
-    public Route(Map data, String folder) {
-        super(data, folder);
-        
-        this.filters = new ArrayList<>();
+    public RhapsodyAuditLogRevisionState() {
+        timestamp = System.currentTimeMillis();
     }
 
-    public List<Filter> getFilters() {
-        return filters;
-    }
-
-    public void setFilters(List<Filter> filters) {
-        this.filters = filters;
+    public long getTimestamp() {
+        return timestamp;
     }
     
-    @Override
-    public String toString() {
-        return "Route{" + super.toString() + '}';
-    }
 }

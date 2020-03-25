@@ -21,36 +21,42 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.ahn.rhapsody.ci.model;
+package org.ahn.rhapsody;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.Date;
 
 /**
  *
  * @author me
  */
-public class Route extends Component {
-    
-    List<Filter> filters;
+public class RhapsodyLogEntry {
 
-    public Route(Map data, String folder) {
-        super(data, folder);
-        
-        this.filters = new ArrayList<>();
+    private Date date;
+    private String username;
+    private String message;
+    private String type;
+
+    public RhapsodyLogEntry(Date date, String username, String message, String type) {
+        this.date = date;
+        this.username = username;
+        this.message = message;
+        this.type = type;
     }
 
-    public List<Filter> getFilters() {
-        return filters;
+    public Date getDate() {
+        return date;
     }
 
-    public void setFilters(List<Filter> filters) {
-        this.filters = filters;
+    public String getUsername() {
+        return username;
     }
-    
-    @Override
-    public String toString() {
-        return "Route{" + super.toString() + '}';
+
+    public String getMessage() {
+        return message;
     }
+
+    public String getType() {
+        return type;
+    }
+
 }

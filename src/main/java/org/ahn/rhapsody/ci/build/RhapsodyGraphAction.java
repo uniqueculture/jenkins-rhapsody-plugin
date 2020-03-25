@@ -106,8 +106,6 @@ public class RhapsodyGraphAction implements Action {
     }
 
     private CategoryDataset buildDataSet(StaplerRequest req) {
-        boolean failureOnly = Boolean.valueOf(req.getParameter("failureOnly"));
-
         DataSetBuilder<String, ChartUtil.NumberOnlyBuildLabel> dsb = new DataSetBuilder<>();
 
         RunList builds = project.getBuilds();
@@ -117,25 +115,11 @@ public class RhapsodyGraphAction implements Action {
             RhapsodyBuildAction action = run.getAction(RhapsodyBuildAction.class);
             if (action != null) {
                 dsb.add(action.getFailCount(), "failed", new ChartUtil.NumberOnlyBuildLabel(run));
-                dsb.add(action.getSuccessCount(), "success", new ChartUtil.NumberOnlyBuildLabel(run));
+                dsb.add(action.getSkippedCount(), "skipped", new ChartUtil.NumberOnlyBuildLabel(run));
                 dsb.add(action.getTotalCount(), "total", new ChartUtil.NumberOnlyBuildLabel(run));
             }
         }
 
-        /*int cap = Integer.getInteger(AbstractTestResultAction.class.getName() + ".test.trend.max", Integer.MAX_VALUE);
-        int count = 0;
-        for (AbstractTestResultAction<?> a = this; a != null; a = a.getPreviousResult(AbstractTestResultAction.class, false)) {
-            if (++count > cap) {
-                LOGGER.log(Level.FINE, "capping test trend for {0} at {1}", new Object[]{run, cap});
-                break;
-            }
-            dsb.add(a.getFailCount(), "failed", new ChartUtil.NumberOnlyBuildLabel(a.run));
-            if (!failureOnly) {
-                dsb.add(a.getSkipCount(), "skipped", new ChartUtil.NumberOnlyBuildLabel(a.run));
-                dsb.add(a.getTotalCount() - a.getFailCount() - a.getSkipCount(), "total", new ChartUtil.NumberOnlyBuildLabel(a.run));
-            }
-        }
-        LOGGER.log(Level.FINER, "total test trend count for {0}: {1}", new Object[]{run, count});*/
         return dsb.build();
     }
 
@@ -211,7 +195,7 @@ public class RhapsodyGraphAction implements Action {
                     case 0:
                         return label.getRun().getDisplayName() + ": " + a.getFailCount() + " failures";
                     case 1:
-                        return label.getRun().getDisplayName() + ": " + a.getSuccessCount()+ " success";
+                        return label.getRun().getDisplayName() + ": " + a.getSkippedCount() + " skipped";
                     default:
                         return label.getRun().getDisplayName() + ": " + a.getTotalCount() + " total";
                 }

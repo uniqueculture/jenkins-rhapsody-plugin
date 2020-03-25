@@ -21,36 +21,37 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.ahn.rhapsody.ci.model;
+package org.ahn.rhapsody.ci.scm;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import hudson.model.Run;
+import hudson.scm.ChangeLogSet;
+import java.io.File;
+import java.io.IOException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import org.junit.Test;
+import org.mockito.Mockito;
+import org.xml.sax.SAXException;
 
 /**
  *
  * @author me
  */
-public class Route extends Component {
-    
-    List<Filter> filters;
+public class RhapsodyChangeLogParserTest {
 
-    public Route(Map data, String folder) {
-        super(data, folder);
+    @Test
+    public void testSomeMethod() throws IOException, SAXException {
+        RhapsodyChangeLogParser parser = new RhapsodyChangeLogParser();
+
+        ClassLoader classLoader = getClass().getClassLoader();
+        File file = new File(classLoader.getResource("changelog.xml").getFile());
         
-        this.filters = new ArrayList<>();
+        Run run = Mockito.mock(Run.class);
+        ChangeLogSet changes = parser.parse(run, null, file);
+        assertNotNull(changes);
+        assertFalse(changes.isEmptySet());
+        assertEquals(changes.getItems().length, 25);
     }
 
-    public List<Filter> getFilters() {
-        return filters;
-    }
-
-    public void setFilters(List<Filter> filters) {
-        this.filters = filters;
-    }
-    
-    @Override
-    public String toString() {
-        return "Route{" + super.toString() + '}';
-    }
 }

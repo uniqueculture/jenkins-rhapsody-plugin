@@ -331,11 +331,12 @@ public class RhapsodyBuilder extends Builder {
         int testsExecuted = 0;
         int testsFailed = 0;
         int testsSucceeded = 0;
+        int testsSkipped = 0;
 
         for (Component component : componentsToTest) {
             try {
-                TestComponent testComponent = performComponentTest(component, listener, client, scmAction.getRestUrl(), executorService);
                 testsExecuted++;
+                TestComponent testComponent = performComponentTest(component, listener, client, scmAction.getRestUrl(), executorService);
 
                 // Add to the suite
                 suite.addComponent(testComponent);
@@ -349,7 +350,7 @@ public class RhapsodyBuilder extends Builder {
                     continue;
                 } else if (testComponent.getTests().isEmpty()) {
                     stdout.println("Empty results are allowed. Pass.");
-                    testsSucceeded++;
+                    testsSkipped++;
                     continue;
                 }
 
@@ -367,6 +368,9 @@ public class RhapsodyBuilder extends Builder {
             } catch (Exception ex) {
                 listener.error("Exception executing tests on component: " + component);
                 ex.printStackTrace(stdout);
+                // Assume failure
+                testsFailed++;
+                
                 answer = false;
             } finally {
                 stdout.println("");
@@ -377,7 +381,7 @@ public class RhapsodyBuilder extends Builder {
         executorService.shutdownNow();
 
         // Add the action
-        build.addAction(new RhapsodyBuildAction(testsSucceeded, testsFailed, testsExecuted));
+        build.addAction(new RhapsodyBuildAction(testsSucceeded, testsFailed, testsSkipped, testsExecuted));
 
         // Save the report
         File outputFile = new File(build.getRootDir(), "rh-test-suite.json");
@@ -387,7 +391,7 @@ public class RhapsodyBuilder extends Builder {
 
         // Output stats
         stdout.println("");
-        stdout.println(testsExecuted + " executed / " + testsSucceeded + " succeeded / " + testsFailed + " failed.");
+        stdout.println(testsExecuted + " executed / " + testsSucceeded + " succeeded / " + testsFailed + " failed / " + testsSkipped + " skipped.");
 
         LOGGER.info("Build complete on Rhapsody instance at {}", restUrl);
         return answer;
@@ -454,14 +458,6 @@ public class RhapsodyBuilder extends Builder {
             return FormValidation.ok();
         }
 
-        /*
-        public ListBoxModel doFillRestUrlItems() {
-            return new ListBoxModel(
-                    new ListBoxModel.Option("Rhapsody Prod", "https://rhapsodyha.pgh.wpahs.org:8444", true),
-                    new ListBoxModel.Option("Rhapsody Test", "https://rhapsodydevint.pgh.wpahs.org:8444", false),
-                    new ListBoxModel.Option("Localhost", "https://localhost:8444", false));
-        }
-         */
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> jobType) {
             return true;
@@ -469,7 +465,7 @@ public class RhapsodyBuilder extends Builder {
 
         @Override
         public String getDisplayName() {
-            return "Rhapsody Builder";
+            return "Rhapsody Test Executor";
         }
 
     }
