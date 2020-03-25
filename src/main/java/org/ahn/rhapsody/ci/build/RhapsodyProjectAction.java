@@ -61,7 +61,7 @@ public class RhapsodyProjectAction implements Action {
 
     @Override
     public String getUrlName() {
-        return null;
+        return "rh-test";
     }
     
 }
