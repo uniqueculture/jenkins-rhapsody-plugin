@@ -38,10 +38,12 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -133,24 +135,24 @@ public class RhapsodyBuilder extends Builder {
      * Filter the components needed for testing, based on configured patterns
      *
      * @param allRoutes
-     * @param routeFilterPattens 
-     * @param filterFilterPatterns 
+     * @param routeFilterPattens
+     * @param filterFilterPatterns
      * @return
      */
     protected List<Component> filterComponentsToTest(List<Route> allRoutes, String routeFilterPattens, String filterFilterPatterns) {
         if (routeFilterPattens == null || routeFilterPattens.isEmpty()) {
             throw new IllegalArgumentException("Route filter patterns must not be blank");
         }
-        
+
         List<Component> componentsToTest = new ArrayList<>();
         String[] routeFilterPattern = routeFilterPattens.split("\n");
-        
+
         List<Pattern> routeRegex = new ArrayList<>();
         List<Pattern> filterRegex = new ArrayList<>();
         for (String pattern : routeFilterPattern) {
             routeRegex.add(Pattern.compile(GlobUtils.toRegex(pattern), Pattern.CASE_INSENSITIVE));
         }
-        
+
         if (filterFilterPatterns != null && !filterFilterPatterns.isEmpty()) {
             String[] filterFilterPattern = filterFilterPatterns.split("\n");
             for (String pattern : filterFilterPattern) {
@@ -363,8 +365,12 @@ public class RhapsodyBuilder extends Builder {
         for (Component component : componentsToTest) {
             try {
                 testsExecuted++;
+                long startTime = System.currentTimeMillis();
                 TestComponent testComponent = performComponentTest(component, listener, client, scmAction.getRestUrl(), executorService);
-
+                
+                long duration = System.currentTimeMillis() - startTime;
+                testComponent.setDuration(duration);
+                
                 // Add to the suite
                 suite.addComponent(testComponent);
 
@@ -397,7 +403,7 @@ public class RhapsodyBuilder extends Builder {
                 ex.printStackTrace(stdout);
                 // Assume failure
                 testsFailed++;
-                
+
                 answer = false;
             } finally {
                 stdout.println("");
@@ -415,6 +421,8 @@ public class RhapsodyBuilder extends Builder {
         try (OutputStream os = new FileOutputStream(outputFile)) {
             mapper.writeValue(os, suite);
         }
+
+        saveJUnitXml(build, suite);
 
         // Output stats
         stdout.println("");
@@ -472,6 +480,68 @@ public class RhapsodyBuilder extends Builder {
         }
 
         return routes;
+    }
+
+    protected void saveJUnitXml(AbstractBuild<?, ?> build, TestSuite suite) throws IOException, InterruptedException {
+        FilePath rootDir = build.getWorkspace();
+
+        for (TestComponent component : suite.getComponents()) {
+            FilePath output = new FilePath(rootDir, "TEST-" + component.getComponentName().replaceAll("[^a-zA-Z0-9\\_]+", "") + ".xml");
+            try (OutputStream os = output.write()) {
+                int errors = 0;
+                int skipped = 0;
+                int failures = 0;
+
+                StringBuilder sb = new StringBuilder(500);
+
+                os.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".getBytes());
+                
+                
+                for (TestCase c : component.getTests()) {
+                    String clsName = component.getComponentName() + "." + (c.getConnectorName() == null ? c.getFilterName() : c.getConnectorName());
+                    String name = c.getName();
+
+                    // Write out the XML
+                    sb.append("\t<testcase name=\"")
+                            .append(name)
+                            .append("\" classname=\"")
+                            .append(clsName)
+                            .append("\" time=\"0.0\">\n");
+
+                    switch (c.getResult()) {
+                        case "FAIL":
+                            failures++;
+                            sb.append("\t\t<failure type=\"Fail\" message=\"Rhapsody returned a fail status\" />\n");
+                            break;
+                        case "SKIPPED":
+                            skipped++;
+                            sb.append("\t\t<skipped message=\"Rhapsody returned a skip status\" />\n");
+                            break;
+                        case "ERROR":
+                        case "INVALID":
+                            errors++;
+                            sb.append("\t\t<error type=\"Error\" message=\"Rhapsody returned an error status\" />\n");
+                            break;
+                    }
+
+                    sb.append("\t</testcase>\n");
+
+                }
+
+                os.write(("<testsuite xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
+                        + "xsi:noNamespaceSchemaLocation=\"https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd\" "
+                        + "version=\"3.0\" "
+                        + "name=\"" + component.getComponentName() + "\" "
+                        + "group=\"" + component.getFolderPath() + "\" "
+                        + "time=\""+ String.valueOf(((float) component.getDuration() / 1000)) +"\" "
+                        + "tests=\"" + component.getTests().size() + "\" "
+                        + "errors=\"" + errors + "\" skipped=\"" + skipped + "\" failures=\"" + failures + "\">\n").getBytes());
+
+                os.write(sb.toString().getBytes());
+
+                os.write("</testsuite>\n".getBytes());
+            }
+        }
     }
 
     @Extension

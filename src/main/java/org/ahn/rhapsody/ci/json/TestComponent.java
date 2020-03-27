@@ -43,6 +43,7 @@ public class TestComponent {
     int failedCount = 0;
     int errorCount = 0;
     int skippedCount = 0;
+    long duration;
     
     List<TestCase> tests;
 
@@ -54,6 +55,7 @@ public class TestComponent {
         this.componentName = componentName;
         this.folderPath = folderPath;
         this.tests = new ArrayList<>();
+        this.duration = 0;
     }
     
     public String getComponentName() {
@@ -131,6 +133,14 @@ public class TestComponent {
 
     public void setSkippedCount(int skippedCount) {
         this.skippedCount = skippedCount;
+    }
+
+    public long getDuration() {
+        return duration;
+    }
+
+    public void setDuration(long duration) {
+        this.duration = duration;
     }
     
     
