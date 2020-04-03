@@ -41,7 +41,7 @@ public class RhapsodyBuilderTest {
 
     @Test
     public void testFiltering() {
-        RhapsodyBuilder builder = new RhapsodyBuilder("", "", true);
+        RhapsodyBuilder builder = new RhapsodyBuilder("", "", true, true);
         List<Route> routes = new ArrayList<>();
 
         for (int i = 0; i < 101; i = i + 5) {

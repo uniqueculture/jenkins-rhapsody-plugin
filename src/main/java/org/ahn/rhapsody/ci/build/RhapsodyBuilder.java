@@ -84,15 +84,17 @@ public class RhapsodyBuilder extends Builder {
     private String routePatterns;
     private String filterPatterns;
     private boolean allowEmptyResults = false;
+    private boolean publishJUnitResults = false;
 
     private transient HttpClient httpClient;
     private transient ObjectMapper objectMapper;
 
     @DataBoundConstructor
-    public RhapsodyBuilder(String routePatterns, String filterPatterns, boolean allowEmptyResults) {
+    public RhapsodyBuilder(String routePatterns, String filterPatterns, boolean allowEmptyResults, boolean publishJUnitResults) {
         this.routePatterns = routePatterns;
         this.filterPatterns = filterPatterns;
         this.allowEmptyResults = allowEmptyResults;
+        this.publishJUnitResults = publishJUnitResults;
     }
 
     public String getRoutePatterns() {
@@ -105,6 +107,10 @@ public class RhapsodyBuilder extends Builder {
 
     public boolean isAllowEmptyResults() {
         return allowEmptyResults;
+    }
+
+    public boolean isPublishJUnitResults() {
+        return publishJUnitResults;
     }
 
     @Override
@@ -323,6 +329,7 @@ public class RhapsodyBuilder extends Builder {
         stdout.println("Filter pattern: ");
         stdout.println(filterPatterns);
         stdout.println("Allow empty results: " + Boolean.toString(allowEmptyResults));
+        stdout.println("Publish JUnit results: " + Boolean.toString(publishJUnitResults));
         stdout.println();
 
         // Track the access to credentials
@@ -367,10 +374,10 @@ public class RhapsodyBuilder extends Builder {
                 testsExecuted++;
                 long startTime = System.currentTimeMillis();
                 TestComponent testComponent = performComponentTest(component, listener, client, scmAction.getRestUrl(), executorService);
-                
+
                 long duration = System.currentTimeMillis() - startTime;
                 testComponent.setDuration(duration);
-                
+
                 // Add to the suite
                 suite.addComponent(testComponent);
 
@@ -422,7 +429,9 @@ public class RhapsodyBuilder extends Builder {
             mapper.writeValue(os, suite);
         }
 
-        saveJUnitXml(build, suite);
+        if (publishJUnitResults) {
+            saveJUnitXml(build, suite);
+        }
 
         // Output stats
         stdout.println("");
@@ -491,15 +500,20 @@ public class RhapsodyBuilder extends Builder {
                 int errors = 0;
                 int skipped = 0;
                 int failures = 0;
-
+                String folderPackage = component.getFolderPath().replace("/", ".");
                 StringBuilder sb = new StringBuilder(500);
 
                 os.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".getBytes());
-                
-                
+
+                // TODO: Write out the properties
+                /*os.write("\t<properties>\n".getBytes());
+                os.write("\t\t<property name=\"route.pattern\" value=\""+ routePatterns +"\" />".getBytes());
+                os.write("\t</properties>\n".getBytes());*/
                 for (TestCase c : component.getTests()) {
-                    String clsName = component.getComponentName() + "." + (c.getConnectorName() == null ? c.getFilterName() : c.getConnectorName());
-                    String name = c.getName();
+                    //String clsName = component.getComponentName() + "." + (c.getConnectorName() == null ? c.getFilterName() : c.getConnectorName());
+                    String clsName = folderPackage + "." + component.getComponentName();
+                    //String name = c.getName();
+                    String name = (c.getConnectorName() == null ? c.getFilterName() : c.getConnectorName()) + "[" + c.getName() + "]";
 
                     // Write out the XML
                     sb.append("\t<testcase name=\"")
@@ -531,9 +545,9 @@ public class RhapsodyBuilder extends Builder {
                 os.write(("<testsuite xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
                         + "xsi:noNamespaceSchemaLocation=\"https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd\" "
                         + "version=\"3.0\" "
-                        + "name=\"" + component.getComponentName() + "\" "
+                        + "name=\"" + folderPackage + "\" "
                         + "group=\"" + component.getFolderPath() + "\" "
-                        + "time=\""+ String.valueOf(((float) component.getDuration() / 1000)) +"\" "
+                        + "time=\"" + String.valueOf(((float) component.getDuration() / 1000)) + "\" "
                         + "tests=\"" + component.getTests().size() + "\" "
                         + "errors=\"" + errors + "\" skipped=\"" + skipped + "\" failures=\"" + failures + "\">\n").getBytes());
 

@@ -63,6 +63,7 @@ import org.ahn.rhapsody.RhapsodyLog;
 import org.ahn.rhapsody.RhapsodyLogEntry;
 import org.ahn.rhapsody.ci.RhapsodyRestHelper;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
@@ -167,7 +168,7 @@ public class RhapsodySCM extends SCM {
                 writer.println(String.format("\t<changeset version=\"%s\">", change.getVersion()));
                 writer.println(String.format("\t\t<date>%s</date>", Util.XS_DATETIME_FORMATTER.format(change.getDate())));
                 writer.println(String.format("\t\t<user>%s</user>", change.getUsername()));
-                writer.println(String.format("\t\t<comment>%s</comment>", change.getComment()));
+                writer.println(String.format("\t\t<comment>%s</comment>", StringEscapeUtils.escapeXml(change.getComment())));
                 writer.println("\t\t<items>");
                 change.getCommPoints().forEach((item) -> {
                     writer.println(String.format("\t\t\t<item action=\"%s\" type=\"%s\">%s</item>", "edit", "communication-point", item));
