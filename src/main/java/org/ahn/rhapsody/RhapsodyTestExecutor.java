@@ -21,35 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.ahn.rhapsody.ci.model;
+package org.ahn.rhapsody;
 
-import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.ahn.rhapsody.ci.json.TestComponent;
+import org.ahn.rhapsody.ci.model.Component;
+import org.apache.http.client.HttpClient;
+import org.slf4j.Logger;
 
 /**
+ * As there is a limit of 1 running test per instance of Rhapsody
+ * For now this implementation insures only one instance of the executor will 
+ * be shared across multiple builds regardless of Rhapsody instance
+ * TODO: Support multiple executors for each Rhapsody instance
  *
  * @author me
  */
-public class Filter extends Component {
-
-    Route route;
-
-    public Filter(Map data) {
-        super(data, "");
-    }
-
-    public Filter(Route route, Map data) {
-        super(data, route.getFolder());
-        this.route = route;
-    }
-
-    @Override
-    public String toString() {
-        return "Filter{" + super.toString() + ", route=" + route.getName() + '}';
-    }
-
-    public Route getRoute() {
-        return route;
-    }
+public interface RhapsodyTestExecutor {
     
+    TestComponent executeTests(Component component, String baseUrl, HttpClient client, ObjectMapper mapper, Logger logger);
     
 }

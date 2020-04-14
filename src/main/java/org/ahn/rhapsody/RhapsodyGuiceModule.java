@@ -21,35 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.ahn.rhapsody.ci.model;
-
-import java.util.Map;
+package org.ahn.rhapsody;
 
 /**
  *
  * @author me
  */
-public class Filter extends Component {
-
-    Route route;
-
-    public Filter(Map data) {
-        super(data, "");
-    }
-
-    public Filter(Route route, Map data) {
-        super(data, route.getFolder());
-        this.route = route;
-    }
+public class RhapsodyGuiceModule extends com.google.inject.AbstractModule {
 
     @Override
-    public String toString() {
-        return "Filter{" + super.toString() + ", route=" + route.getName() + '}';
+    protected void configure() {
+        bind(RhapsodyTestExecutor.class).to(RhapsodyTestExecutorImpl.class).asEagerSingleton();
     }
-
-    public Route getRoute() {
-        return route;
-    }
-    
     
 }

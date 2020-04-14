@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
  * @author me
  */
 public class RhapsodyBuildAction implements RunAction2 {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(RhapsodyBuildAction.class);
 
     private transient Run run;
@@ -70,9 +71,44 @@ public class RhapsodyBuildAction implements RunAction2 {
     public int getSkippedCount() {
         return skippedCount;
     }
-    
+
+    public long getNoTestsCount() {
+        if (testSuite == null) {
+            load();
+        }
+        
+        return testSuite.getComponents().parallelStream().filter(c -> c.getTests().isEmpty()).count();
+    }
+
     public Run getRun() {
         return run;
+    }
+
+    public double getSuccessRate() {
+        if (totalCount == 0) {
+            return 0.00;
+        }
+
+        double percent = ((double) successCount / totalCount) * 100;
+        // Round to two decemal
+        double rate = Math.round(percent * 100.0) / 100.0;
+        return rate;
+    }
+
+    public double getCoverageRate() {
+        if (testSuite == null) {
+            load();
+        }
+
+        long noTests = getNoTestsCount();
+        if (noTests == 0) {
+            return 100.00;
+        }
+
+        double percent = ((double) noTests / totalCount) * 100;
+        // Round to two decemal
+        double rate = Math.round(percent * 100.0) / 100.0;
+        return rate;
     }
 
     public void setTestSuite(TestSuite testSuite) {
@@ -83,17 +119,17 @@ public class RhapsodyBuildAction implements RunAction2 {
         if (testSuite == null) {
             load();
         }
-        
+
         return testSuite;
     }
-    
+
     private void load() {
         File testSuiteFile = new File(run.getRootDir(), "rh-test-suite.json");
         if (!testSuiteFile.canRead()) {
             LOGGER.warn("Test suite file does not exists or is unreadable");
             return;
         }
-        
+
         ObjectMapper mapper = new ObjectMapper();
         try (InputStream is = new FileInputStream(testSuiteFile)) {
             testSuite = mapper.readValue(is, TestSuite.class);
@@ -101,7 +137,7 @@ public class RhapsodyBuildAction implements RunAction2 {
             LOGGER.error("Exception loading test suite file", ex);
         }
     }
-    
+
     @Override
     public String getIconFileName() {
         return "clipboard.png";

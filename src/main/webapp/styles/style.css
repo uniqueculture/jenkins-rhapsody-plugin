@@ -39,3 +39,16 @@ THE SOFTWARE.
     flex: 1 1 auto;
     align-self: auto;
 }
+
+.test-results dd {
+    margin:3px 0px 15px 0px;
+    font-size:1.5em;
+}
+
+.test-results .success {
+    color: green;
+}
+
+.test-results .failed {
+    color: red;
+}

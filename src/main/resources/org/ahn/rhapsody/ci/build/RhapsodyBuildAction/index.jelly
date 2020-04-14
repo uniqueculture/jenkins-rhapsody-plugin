@@ -8,21 +8,35 @@
         <st:include it="${it.run}" page="sidepanel.jelly"/>
         <l:main-panel>
             <h1>Rhapsody Test Result</h1>
-            <div class="flex-container">
+            <div class="flex-container test-results">
+                <div class="flex-item">
+                    <dl>
+                        <dt>Components</dt>
+                        <dd>${it.totalCount}</dd>
+                    </dl>
+                </div>
                 <div class="flex-item">
                     <dl>
                         <dt>Successs</dt>
-                        <dd>${it.successCount}</dd>
-                        <dt>Failed</dt>
-                        <dd>${it.failCount}</dd>
+                        <dd class="success">${it.successCount}</dd>
+                        <dt>Failed/Error/No Tests</dt>
+                        <dd class="failed">${it.failCount}</dd>
                     </dl>
                 </div>
                 <div class="flex-item">
                     <dl>
                         <dt>Skipped</dt>
                         <dd>${it.skippedCount}</dd>
-                        <dt>Total</dt>
-                        <dd>${it.totalCount}</dd>
+                        <dt>No Tests Only</dt>
+                        <dd>${it.noTestsCount}</dd>
+                    </dl>
+                </div>
+                <div class="flex-item">
+                    <dl>
+                        <dt>Success Rate</dt>
+                        <dd>${it.successRate}%</dd>
+                        <dt>With Tests</dt>
+                        <dd>${it.coverageRate}%</dd>
                     </dl>
                 </div>
             </div>
@@ -38,54 +52,71 @@
                     </tr>
 
                     <j:forEach var="comp" items="${it.testSuite.components}">
-                        <j:if test="${comp.tests.isEmpty()}">
-                            <tr>
-                                <td>${comp.componentName}<br />
-                                    <span style="font-size:smaller; color:grey;">${comp.folderPath}</span>
-                                </td>
-                                <td>
-                                    <st:nbsp/>
-                                </td>
-                                <td>
-                                    <st:nbsp/>
-                                </td>
-                                <td>
-                                    <span style="font-size:smaller; color:grey;">No tests</span>
-                                </td>
-                            </tr>
-                        </j:if>
-                        <j:if test="${comp.tests.size() > 0}">
-                            <j:forEach var="case" items="${comp.tests}">
+                        <j:choose>
+                            <j:when test="${comp.tests.size() > 0}">
+                                <j:forEach var="case" items="${comp.tests}">
+                                    <tr>
+                                        <td>${comp.componentName}<br />
+                                            <span style="font-size:smaller; color:grey;">${comp.folderPath}</span>
+                                        </td>
+                                        <td style="width:30%">
+                                            <j:if test="${case.filterName != ''}">
+                                                ${case.filterName}
+                                            </j:if>
+                                            <j:if test="${case.connectorName != ''}">
+                                                ${case.connectorName}
+                                            </j:if>
+                                        </td>
+                                        <td>${case.name}</td>
+                                        <td>
+                                            <j:choose>
+                                                <j:when test="${case.result == 'FAIL' || case.result == 'ERROR'}">
+                                                    <span class="result-failed">${case.result}</span>
+                                                </j:when>
+                                                <j:when test="${case.result == 'PASS'}">
+                                                    <span class="result-passed">${case.result}</span>
+                                                </j:when>
+                                                <j:otherwise>
+                                                    ${case.result}
+                                                </j:otherwise>
+                                            </j:choose>
+                                        </td>
+                                    </tr>    
+                                </j:forEach>
+                            </j:when>
+                            <j:when test="${comp.error != '' and comp.error != null}">
+                                <tr>
+                                    <td>${comp.componentName}<br />
+                                        <span style="font-size:smaller; color:grey;">${comp.folderPath}</span>
+                                    </td>
+                                    <!--<td>
+                                        <st:nbsp/>
+                                    </td>
+                                    <td>
+                                        <st:nbsp/>
+                                    </td>-->
+                                    <td colspan="3">
+                                        <span style="font-size:smaller; color:red;">${comp.error}</span>
+                                    </td>
+                                </tr>
+                            </j:when>
+                            <j:when test="${comp.tests.isEmpty()}">
                                 <tr>
                                     <td>${comp.componentName}<br />
                                         <span style="font-size:smaller; color:grey;">${comp.folderPath}</span>
                                     </td>
                                     <td>
-                                        <j:if test="${case.filterName != ''}">
-                                            ${case.filterName}
-                                        </j:if>
-                                        <j:if test="${case.connectorName != ''}">
-                                            ${case.connectorName}
-                                        </j:if>
+                                        <st:nbsp/>
                                     </td>
-                                    <td>${case.name}</td>
                                     <td>
-                                        <j:choose>
-                                            <j:when test="${case.result == 'FAIL' || case.result == 'ERROR'}">
-                                                <span class="result-failed">${case.result}</span>
-                                            </j:when>
-                                            <j:when test="${case.result == 'PASS'}">
-                                                <span class="result-passed">${case.result}</span>
-                                            </j:when>
-                                            <j:otherwise>
-                                                ${case.result}
-                                            </j:otherwise>
-                                        </j:choose>
+                                        <st:nbsp/>
                                     </td>
-                                </tr>    
-                            </j:forEach>
-                        </j:if>
-
+                                    <td>
+                                        <span style="font-size:smaller; color:grey;">No tests</span>
+                                    </td>
+                                </tr>
+                            </j:when>
+                        </j:choose>
                         
                         <!--<j:forEach var="case" items="${comp.tests}">
                             <tr>

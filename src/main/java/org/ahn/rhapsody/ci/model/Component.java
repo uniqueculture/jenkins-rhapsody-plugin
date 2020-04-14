@@ -59,7 +59,7 @@ public class Component {
 
     @Override
     public String toString() {
-        return "Component{" + "uuid=" + uuid + ", id=" + id + ", name=" + name + ", type=" + type + ", folder=" + folder + "}";
+        return "Component{id=" + id + ", name=" + name + ", type=" + type + "}";
     }
 
     public String getUuid() {

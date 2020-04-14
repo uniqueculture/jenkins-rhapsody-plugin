@@ -21,35 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.ahn.rhapsody.ci.model;
+package org.ahn.rhapsody.ci.build;
 
-import java.util.Map;
+import org.junit.Test;
+import static org.junit.Assert.*;
 
 /**
  *
  * @author me
  */
-public class Filter extends Component {
+public class RhapsodyBuildActionTest {
 
-    Route route;
+    @Test
+    public void testSomeMethod() {
+        assertTrue(0.0 == (new RhapsodyBuildAction(0, 0, 0, 0)).getSuccessRate());
 
-    public Filter(Map data) {
-        super(data, "");
+        assertTrue(100.00 == (new RhapsodyBuildAction(10, 0, 0, 10)).getSuccessRate());
+        assertTrue(50.00 == (new RhapsodyBuildAction(5, 0, 0, 10)).getSuccessRate());
+
     }
 
-    public Filter(Route route, Map data) {
-        super(data, route.getFolder());
-        this.route = route;
-    }
-
-    @Override
-    public String toString() {
-        return "Filter{" + super.toString() + ", route=" + route.getName() + '}';
-    }
-
-    public Route getRoute() {
-        return route;
-    }
-    
-    
 }

@@ -26,6 +26,8 @@ package org.ahn.rhapsody.ci.build;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Guice;
+import com.google.inject.Inject;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -38,12 +40,10 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -51,12 +51,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import jenkins.util.xml.XMLUtils;
+import org.ahn.rhapsody.RhapsodyGuiceModule;
+import org.ahn.rhapsody.RhapsodyTestExecutor;
 import org.ahn.rhapsody.ci.GlobUtils;
-import org.ahn.rhapsody.ci.RhapsodyComponentTestTask;
 import org.ahn.rhapsody.ci.RhapsodyRestHelper;
 import org.ahn.rhapsody.ci.json.TestCase;
 import org.ahn.rhapsody.ci.json.TestComponent;
@@ -66,6 +66,8 @@ import org.ahn.rhapsody.ci.model.Filter;
 import org.ahn.rhapsody.ci.model.Route;
 import org.ahn.rhapsody.ci.scm.RhapsodySCM;
 import org.ahn.rhapsody.ci.scm.RhapsodySCMAction;
+import org.ahn.rhapsody.log.PrintStreamLogger;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.http.client.HttpClient;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
@@ -88,6 +90,7 @@ public class RhapsodyBuilder extends Builder {
 
     private transient HttpClient httpClient;
     private transient ObjectMapper objectMapper;
+    private transient RhapsodyTestExecutor testExecutor;
 
     @DataBoundConstructor
     public RhapsodyBuilder(String routePatterns, String filterPatterns, boolean allowEmptyResults, boolean publishJUnitResults) {
@@ -145,7 +148,7 @@ public class RhapsodyBuilder extends Builder {
      * @param filterFilterPatterns
      * @return
      */
-    protected List<Component> filterComponentsToTest(List<Route> allRoutes, String routeFilterPattens, String filterFilterPatterns) {
+    protected List<Component> filterComponentsToTest(List<Route> allRoutes, String routeFilterPattens, String filterFilterPatterns, Logger console) {
         if (routeFilterPattens == null || routeFilterPattens.isEmpty()) {
             throw new IllegalArgumentException("Route filter patterns must not be blank");
         }
@@ -160,10 +163,13 @@ public class RhapsodyBuilder extends Builder {
         }
 
         if (filterFilterPatterns != null && !filterFilterPatterns.isEmpty()) {
+            console.info("Filter pattern is not empty, tests will be executed on qualifying filters explicitly");
             String[] filterFilterPattern = filterFilterPatterns.split("\n");
             for (String pattern : filterFilterPattern) {
                 filterRegex.add(Pattern.compile(GlobUtils.toRegex(pattern), Pattern.CASE_INSENSITIVE));
             }
+        } else {
+            console.info("Filter pattern is empty, tests will be executed on all route components (filters and connectors)");
         }
 
         // Filter on the name of either route & filter or just route
@@ -206,7 +212,7 @@ public class RhapsodyBuilder extends Builder {
      * @return
      * @throws Exception
      */
-    protected TestComponent performComponentTest(Component component, BuildListener listener, HttpClient client, String restUrl, ScheduledExecutorService executorService) throws Exception {
+    /*protected TestComponent performComponentTest(Component component, BuildListener listener, HttpClient client, String restUrl, ScheduledExecutorService executorService) throws Exception {
         ObjectMapper mapper = getObjectMapper();
         PrintStream stdout = listener.getLogger();
 
@@ -284,8 +290,7 @@ public class RhapsodyBuilder extends Builder {
         cases.forEach(testComponent::addTest);
 
         return testComponent;
-    }
-
+    }*/
     @Override
     public boolean perform(AbstractBuild<?, ?> build,
             Launcher launcher,
@@ -297,8 +302,12 @@ public class RhapsodyBuilder extends Builder {
             return false;
         }
 
-        String restUrl = scmAction.getRestUrl();
+        // Get the injections
+        if (testExecutor == null) {
+            Guice.createInjector(new RhapsodyGuiceModule()).injectMembers(this);
+        }
 
+        String restUrl = scmAction.getRestUrl();
         LOGGER.info("Performing build on Rhapsody instance at {}", restUrl);
 
         // Run through validation
@@ -321,16 +330,18 @@ public class RhapsodyBuilder extends Builder {
         }
         String serviceUsername = credentials.getUsername();
 
-        stdout.println("Performing build on Rhapsody instance at " + restUrl);
-        stdout.println("REST URL: " + restUrl);
-        stdout.println("Service username: " + serviceUsername);
-        stdout.println("Route pattern: ");
-        stdout.println(routePatterns);
-        stdout.println("Filter pattern: ");
-        stdout.println(filterPatterns);
-        stdout.println("Allow empty results: " + Boolean.toString(allowEmptyResults));
-        stdout.println("Publish JUnit results: " + Boolean.toString(publishJUnitResults));
-        stdout.println();
+        // Create a logger
+        Logger console = new PrintStreamLogger(stdout);
+        console.info("Performing build on Rhapsody instance at " + restUrl);
+        console.info("REST URL: " + restUrl);
+        console.info("Service username: " + serviceUsername);
+        console.info("Route pattern: ");
+        console.info(routePatterns);
+        console.info("Filter pattern: ");
+        console.info(filterPatterns);
+        console.info("Allow empty results: " + Boolean.toString(allowEmptyResults));
+        console.info("Publish JUnit results: " + Boolean.toString(publishJUnitResults));
+        console.info("");
 
         // Track the access to credentials
         CredentialsProvider.track(build, credentials);
@@ -345,7 +356,10 @@ public class RhapsodyBuilder extends Builder {
         List<Component> componentsToTest = new ArrayList<>();
         try {
             allRoutes = getAllRoutes(build);
-            componentsToTest = filterComponentsToTest(allRoutes, routePatterns, filterPatterns);
+            console.info("Rhapsody returned {} routes", allRoutes.size());
+
+            componentsToTest = filterComponentsToTest(allRoutes, routePatterns, filterPatterns, console);
+            console.info("{} components qualified to be tested", componentsToTest.size());
         } catch (Exception ex) {
 
         }
@@ -356,12 +370,8 @@ public class RhapsodyBuilder extends Builder {
             return false;
         }
 
-        stdout.println("Will test " + componentsToTest.size() + " component(s) out of " + allRoutes.size() + " total routes");
-        stdout.println("");
+        console.info("Ready to begin testing");
 
-        // Run through the testing, one test at a time
-        // Rhapsody does not support running multiple tests via REST API
-        ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
         TestSuite suite = new TestSuite();
         boolean answer = true;
         int testsExecuted = 0;
@@ -373,7 +383,11 @@ public class RhapsodyBuilder extends Builder {
             try {
                 testsExecuted++;
                 long startTime = System.currentTimeMillis();
-                TestComponent testComponent = performComponentTest(component, listener, client, scmAction.getRestUrl(), executorService);
+                // Run through the testing, one component at a time
+                // Rhapsody does not support running multiple tests via REST API
+                // TODO: Figure out how to keep only one instance of across all the jobs
+                TestComponent testComponent = testExecutor.executeTests(component, scmAction.getRestUrl(), client, mapper, console);
+                //TestComponent testComponent = performComponentTest(component, listener, client, scmAction.getRestUrl(), executorService);
 
                 long duration = System.currentTimeMillis() - startTime;
                 testComponent.setDuration(duration);
@@ -381,15 +395,24 @@ public class RhapsodyBuilder extends Builder {
                 // Add to the suite
                 suite.addComponent(testComponent);
 
+                console.info("{} - {} total / {} executed / {} passed / {} failed / {} skipped / {} error",
+                        testComponent.getComponentName(),
+                        testComponent.getTotalCount(),
+                        testComponent.getExecutedCount(),
+                        testComponent.getPassedCount(),
+                        testComponent.getFailedCount(),
+                        testComponent.getSkippedCount(),
+                        testComponent.getErrorCount());
+
                 // Check if any tests actually executed
                 if (testComponent.getTests().isEmpty() && !allowEmptyResults) {
                     // Return failed on no tests
-                    listener.error("Empty results are not allowed. Fail.");
+                    console.error("Empty results are not allowed. Marking the build as failure.");
                     testsFailed++;
                     answer = false;
                     continue;
                 } else if (testComponent.getTests().isEmpty()) {
-                    stdout.println("Empty results are allowed. Pass.");
+                    console.info("Empty results are allowed. Pass.");
                     testsSkipped++;
                     continue;
                 }
@@ -397,7 +420,7 @@ public class RhapsodyBuilder extends Builder {
                 // Evaluate individual test
                 if (testComponent.getErrorCount() > 0 || testComponent.getFailedCount() > 0) {
                     // Failed tests
-                    listener.error("Failed test result for " + component.toString());
+                    console.error("Tests failed or errored. Marking the build as failure.");
                     testsFailed++;
                     answer = false;
                     continue;
@@ -406,19 +429,13 @@ public class RhapsodyBuilder extends Builder {
                 testsSucceeded++;
 
             } catch (Exception ex) {
-                listener.error("Exception executing tests on component: " + component);
-                ex.printStackTrace(stdout);
+                console.error("Exception executing tests on component: {}", component, ex);
                 // Assume failure
                 testsFailed++;
 
                 answer = false;
-            } finally {
-                stdout.println("");
             }
         }
-
-        // Shutdown the executor
-        executorService.shutdownNow();
 
         // Add the action
         build.addAction(new RhapsodyBuildAction(testsSucceeded, testsFailed, testsSkipped, testsExecuted));
@@ -430,7 +447,9 @@ public class RhapsodyBuilder extends Builder {
         }
 
         if (publishJUnitResults) {
+            console.info("Saving JUnit reports");
             saveJUnitXml(build, suite);
+            console.info("JUnit reports saved");
         }
 
         // Output stats
@@ -447,6 +466,11 @@ public class RhapsodyBuilder extends Builder {
         }
 
         return objectMapper;
+    }
+
+    @Inject
+    public void setTestExecutor(RhapsodyTestExecutor testExecutor) {
+        this.testExecutor = testExecutor;
     }
 
     /**
@@ -513,7 +537,7 @@ public class RhapsodyBuilder extends Builder {
                     //String clsName = component.getComponentName() + "." + (c.getConnectorName() == null ? c.getFilterName() : c.getConnectorName());
                     String clsName = folderPackage + "." + component.getComponentName();
                     //String name = c.getName();
-                    String name = (c.getConnectorName() == null ? c.getFilterName() : c.getConnectorName()) + "[" + c.getName() + "]";
+                    String name = (c.getConnectorName() == null ? c.getFilterName() : c.getConnectorName()) + "[" + StringEscapeUtils.escapeXml(c.getName()) + "]";
 
                     // Write out the XML
                     sb.append("\t<testcase name=\"")

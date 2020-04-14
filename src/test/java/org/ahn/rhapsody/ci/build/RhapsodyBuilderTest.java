@@ -32,6 +32,8 @@ import org.ahn.rhapsody.ci.model.Filter;
 import org.ahn.rhapsody.ci.model.Route;
 import static org.junit.Assert.*;
 import org.junit.Test;
+import org.mockito.Mockito;
+import org.slf4j.Logger;
 
 /**
  *
@@ -43,6 +45,7 @@ public class RhapsodyBuilderTest {
     public void testFiltering() {
         RhapsodyBuilder builder = new RhapsodyBuilder("", "", true, true);
         List<Route> routes = new ArrayList<>();
+        Logger logger = Mockito.mock(Logger.class);
 
         for (int i = 0; i < 101; i = i + 5) {
             Map<String, String> data = new HashMap<>();
@@ -64,29 +67,29 @@ public class RhapsodyBuilderTest {
         }
 
         try {
-            builder.filterComponentsToTest(routes, "", "");
+            builder.filterComponentsToTest(routes, "", "", logger);
             fail("Illegal argument exception is expected");
         } catch (IllegalArgumentException ex) {
             // Expected
         }
 
-        List<Component> allComponents = builder.filterComponentsToTest(routes, "*", "");
+        List<Component> allComponents = builder.filterComponentsToTest(routes, "*", "", logger);
         assertEquals(routes.size(), allComponents.size());
 
-        List<Component> onlyOneRoute = builder.filterComponentsToTest(routes, "Route 10", "");
+        List<Component> onlyOneRoute = builder.filterComponentsToTest(routes, "Route 10", "", logger);
         assertEquals(1, onlyOneRoute.size());
 
-        List<Component> onlyRoutesWithOne = builder.filterComponentsToTest(routes, "Route 1*", "");
+        List<Component> onlyRoutesWithOne = builder.filterComponentsToTest(routes, "Route 1*", "", logger);
         // Expect: Route 1, Route 10, Route 15
         assertEquals(3, onlyRoutesWithOne.size());
 
-        List<Component> onlyFilters = builder.filterComponentsToTest(routes, "Route 10", "*");
+        List<Component> onlyFilters = builder.filterComponentsToTest(routes, "Route 10", "*", logger);
         assertEquals(5, onlyFilters.size());
         for (Component c : onlyFilters) {
             assertTrue("Component is expected to be Filter", c instanceof Filter);
         }
 
-        List<Component> filteredFilters = builder.filterComponentsToTest(routes, "Route 10", "Filter 10-1");
+        List<Component> filteredFilters = builder.filterComponentsToTest(routes, "Route 10", "Filter 10-1", logger);
         assertEquals(1, filteredFilters.size());
         for (Component c : onlyFilters) {
             assertTrue("Component is expected to be Filter", c instanceof Filter);
